@@ -1,0 +1,15 @@
+# Terraform working files and secrets
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Built zips and temporary test files
+*.zip
+*-response.json
+response.json
+join-test.json
+admit-test.json
+key.json
+terraform/main.tf.txt
