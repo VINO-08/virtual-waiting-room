@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Virtual Waiting Room</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f5f9; margin: 0; padding: 40px 16px; color: #1f2933; }
+    .card { max-width: 420px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    h1 { font-size: 22px; margin-top: 0; }
+    button { background: #2563eb; color: #ffffff; border: none; border-radius: 8px; padding: 12px 28px; font-size: 16px; cursor: pointer; }
+    button:disabled { background: #9ca3af; cursor: default; }
+    .big { font-size: 56px; font-weight: bold; margin: 12px 0; }
+    .waiting { color: #b45309; }
+    .inside { color: #15803d; }
+    .done { color: #6b7280; }
+    .small { font-size: 13px; color: #6b7280; word-break: break-all; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Virtual Waiting Room</h1>
+    <div id="view">
+      <p>Click the button to join the line.</p>
+      <button id="joinBtn">Join the waiting room</button>
+    </div>
+    <p id="error" class="error"></p>
+  </div>
+
+  <script>
+    const API = "https://sxmom25a49.execute-api.ap-south-1.amazonaws.com/dev";
+    const view = document.getElementById("view");
+    const errorBox = document.getElementById("error");
+    let timer = null;
+
+    document.getElementById("joinBtn").addEventListener("click", joinLine);
+
+    async function joinLine() {
+      errorBox.textContent = "";
+      const button = document.getElementById("joinBtn");
+      button.disabled = true;
+      button.textContent = "Joining...";
+      try {
+        const response = await fetch(API + "/join", { method: "POST" });
+        if (!response.ok) { throw new Error("Join failed (" + response.status + ")"); }
+        const data = await response.json();
+        showStatus({ status: "WAITING", session_id: data.session_id });
+        checkStatus(data.session_id);
+        timer = setInterval(function () { checkStatus(data.session_id); }, 3000);
+      } catch (error) {
+        errorBox.textContent = "Could not join: " + error.message;
+        button.disabled = false;
+        button.textContent = "Join the waiting room";
+      }
+    }
+
+    async function checkStatus(sessionId) {
+      try {
+        const response = await fetch(API + "/status/" + sessionId);
+        if (!response.ok) { throw new Error("Status failed (" + response.status + ")"); }
+        const data = await response.json();
+        errorBox.textContent = "";
+        showStatus(data);
+        if (data.status === "COMPLETED") { clearInterval(timer); }
+      } catch (error) {
+        errorBox.textContent = "Could not check your place: " + error.message;
+      }
+    }
+
+    function showStatus(data) {
+      const id = '<p class="small">Your ticket: ' + data.session_id + '</p>';
+      if (data.status === "WAITING") {
+        const place = data.queue_position ? data.queue_position : "...";
+        view.innerHTML = '<p>You are in line. Your place:</p><div class="big waiting">' + place + '</div><p>Please keep this page open.</p>' + id;
+      } else if (data.status === "ADMITTED") {
+        view.innerHTML = '<div class="big inside">You are in!</div><p>It is your turn. Enjoy!</p>' + id;
+      } else {
+        view.innerHTML = '<div class="big done">Done</div><p>Your session has ended. Thank you!</p>' + id;
+      }
+    }
+  </script>
+</body>
+</html>
